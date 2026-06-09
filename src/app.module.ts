@@ -1,9 +1,14 @@
 import { Module } from '@nestjs/common';
-import { AuthModule } from './auth/auth.module';
-import { DoctorModule } from './doctor/doctor.module';
-import { PatientModule } from './patient/patient.module';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { DoctorController } from './doctor.controller';
+import { DoctorProfileService } from './doctor-profile.service';
+import { DoctorProfile } from './doctor-profile.entity';
+import { DoctorDiscoveryController } from './doctor-discovery.controller';
+import { DoctorDiscoveryService } from './doctor-discovery.service';
 
 @Module({
-  imports: [AuthModule, DoctorModule, PatientModule],
+  imports: [TypeOrmModule.forFeature([DoctorProfile])],
+  controllers: [DoctorController, DoctorDiscoveryController],
+  providers: [DoctorProfileService, DoctorDiscoveryService],
 })
-export class AppModule {}
+export class DoctorModule {}
