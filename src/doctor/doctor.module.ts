@@ -5,9 +5,13 @@ import { DoctorProfileService } from './doctor-profile.service';
 import { DoctorProfile } from './doctor-profile.entity';
 import { DoctorDiscoveryController } from './doctor-discovery.controller';
 import { DoctorDiscoveryService } from './doctor-discovery.service';
+import { AvailabilityModule } from './availability/availability.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([DoctorProfile])],
+  imports: [
+    TypeOrmModule.forFeature([DoctorProfile]),
+    AvailabilityModule,
+  ],
   controllers: [DoctorController, DoctorDiscoveryController],
   providers: [DoctorProfileService, DoctorDiscoveryService],
 })
