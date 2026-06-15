@@ -1,56 +1,29 @@
-import { Controller, Get, UseGuards, Request } from '@nestjs/common';
-import {
-  ApiBearerAuth,
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-} from '@nestjs/swagger';
+import { Controller, Get, Post, Patch, Body, UseGuards, Request } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../common/types';
+import { PatientProfileService } from './patient-profile.service';
+import { CreatePatientProfileDto, UpdatePatientProfileDto } from './dto/patient-profile.dto';
 
-@ApiTags('Patient')
-@ApiBearerAuth()
 @Controller('patient')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.PATIENT)
 export class PatientController {
-  @Get('profile')
-  @Roles(Role.PATIENT)
-  @ApiOperation({ summary: 'Get patient profile (PATIENT only)' })
-  @ApiResponse({ status: 200, description: 'Returns patient profile' })
-  @ApiResponse({ status: 401, description: 'Unauthorized — missing/invalid JWT' })
-  @ApiResponse({ status: 403, description: 'Forbidden — DOCTOR cannot access' })
-  getProfile(@Request() req) {
-    return {
-      message: '✅ Welcome, Patient!',
-      profile: {
-        id: req.user.id,
-        name: req.user.name,
-        email: req.user.email,
-        role: req.user.role,
-        bloodGroup: 'B+',          // placeholder
-        medicalId: 'SCH-PT-0042',  // placeholder
-      },
-    };
+  constructor(private patientProfileService: PatientProfileService) {}
+
+  @Post('profile')
+  createProfile(@Request() req, @Body() dto: CreatePatientProfileDto) {
+    return this.patientProfileService.create(req.user.id, dto);
   }
 
-  @Get('appointments')
-  @Roles(Role.PATIENT)
-  @ApiOperation({ summary: 'Get patient appointments (PATIENT only)' })
-  getAppointments(@Request() req) {
-    return {
-      message: '📅 Your Appointments',
-      patient: req.user.name,
-      appointments: [
-        {
-          id: 'APT-001',
-          doctor: 'Dr. Arjun Mehta',
-          date: '2025-06-10',
-          time: '10:00 AM',
-          status: 'Confirmed',
-        },
-      ],
-    };
+  @Get('profile')
+  getProfile(@Request() req) {
+    return this.patientProfileService.findByUserId(req.user.id);
+  }
+
+  @Patch('profile')
+  updateProfile(@Request() req, @Body() dto: UpdatePatientProfileDto) {
+    return this.patientProfileService.update(req.user.id, dto);
   }
 }
