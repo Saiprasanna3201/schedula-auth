@@ -1,52 +1,29 @@
-import { Controller, Get, UseGuards, Request } from '@nestjs/common';
-import {
-  ApiBearerAuth,
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-} from '@nestjs/swagger';
+import { Controller, Get, Post, Patch, Body, UseGuards, Request } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../common/types';
+import { DoctorProfileService } from './doctor-profile.service';
+import { CreateDoctorProfileDto, UpdateDoctorProfileDto } from './dto/doctor-profile.dto';
 
-@ApiTags('Doctor')
-@ApiBearerAuth()
 @Controller('doctor')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.DOCTOR)
 export class DoctorController {
-  @Get('profile')
-  @Roles(Role.DOCTOR)
-  @ApiOperation({ summary: 'Get doctor profile (DOCTOR only)' })
-  @ApiResponse({ status: 200, description: 'Returns doctor profile' })
-  @ApiResponse({ status: 401, description: 'Unauthorized — missing/invalid JWT' })
-  @ApiResponse({ status: 403, description: 'Forbidden — PATIENT cannot access' })
-  getProfile(@Request() req) {
-    return {
-      message: '✅ Welcome, Doctor!',
-      profile: {
-        id: req.user.id,
-        name: req.user.name,
-        email: req.user.email,
-        role: req.user.role,
-        specialization: 'General Physician', // placeholder
-        hospital: 'Schedula Medical Center',
-      },
-    };
+  constructor(private doctorProfileService: DoctorProfileService) {}
+
+  @Post('profile')
+  createProfile(@Request() req, @Body() dto: CreateDoctorProfileDto) {
+    return this.doctorProfileService.create(req.user.id, dto);
   }
 
-  @Get('dashboard')
-  @Roles(Role.DOCTOR)
-  @ApiOperation({ summary: 'Doctor dashboard — appointments & stats (DOCTOR only)' })
-  getDashboard(@Request() req) {
-    return {
-      message: '📊 Doctor Dashboard',
-      doctor: req.user.name,
-      stats: {
-        totalAppointments: 24,
-        pendingApprovals: 5,
-        completedToday: 8,
-      },
-    };
+  @Get('profile')
+  getProfile(@Request() req) {
+    return this.doctorProfileService.findByUserId(req.user.id);
+  }
+
+  @Patch('profile')
+  updateProfile(@Request() req, @Body() dto: UpdateDoctorProfileDto) {
+    return this.doctorProfileService.update(req.user.id, dto);
   }
 }

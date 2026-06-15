@@ -29,7 +29,9 @@ import { AddSlotsTable1749200000000 } from './database/migrations/1749200000000-
       ],
       synchronize: false,
       migrationsRun: true,
-      ssl: { rejectUnauthorized: false },
+      ssl: {
+        rejectUnauthorized: false,
+      },
     }),
     AuthModule,
     DoctorModule,
