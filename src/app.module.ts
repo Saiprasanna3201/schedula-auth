@@ -1,36 +1,32 @@
 import { Module } from '@nestjs/common';
+import { AppController } from './app.controller';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
+import { UsersModule } from './users/users.module';
 import { DoctorModule } from './doctor/doctor.module';
 import { PatientModule } from './patient/patient.module';
-import { SlotsModule } from './slots/slots.module';
-import { AppointmentsModule } from './appointments/appointments.module';
-import { SchedulingModule } from './scheduling/scheduling.module';
+import { AppointmentModule } from './appointment/appointment.module';
+import { getDatabaseConfig } from './config/database.config';
 
 @Module({
+  controllers: [AppController],
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    // Load .env globally
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
+    // Connect to PostgreSQL via TypeORM
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        type: 'postgres',
-        url: config.get<string>('DATABASE_URL'),
-        ssl: { rejectUnauthorized: false },
-        entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
-        synchronize: false,
-        migrationsRun: true,
-        logging: false,
-      }),
+      useFactory: (config: ConfigService) => getDatabaseConfig(config),
     }),
     AuthModule,
+    UsersModule,
     DoctorModule,
     PatientModule,
-    SlotsModule,
-    AppointmentsModule,
-    SchedulingModule,
+    AppointmentModule,
   ],
 })
 export class AppModule {}
