@@ -16,12 +16,13 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Role } from '../common/enums/role.enum';
 import { AppointmentService } from './appointment.service';
 import { BookAppointmentDto } from './dto/book-appointment.dto';
+import { RescheduleAppointmentDto } from './dto/reschedule-appointment.dto';
 
 @Controller()
 export class AppointmentController {
   constructor(private readonly appointmentService: AppointmentService) {}
 
-  // ─── 1. Book Appointment (Patient only) ───────────────────────────────────────
+  // ─── 1. Book Appointment (Patient only) ─────────────────────────────────────
   // POST /api/appointment
   @Post('appointment')
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -33,7 +34,7 @@ export class AppointmentController {
     return this.appointmentService.bookAppointment(user.id, dto);
   }
 
-  // ─── 2. Patient Appointment View ──────────────────────────────────────────────
+  // ─── 2. Patient Appointment View ────────────────────────────────────────────
   // GET /api/appointment/my
   @Get('appointment/my')
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -42,7 +43,7 @@ export class AppointmentController {
     return this.appointmentService.getPatientAppointments(user.id);
   }
 
-  // ─── 3. Cancel Appointment (Patient only) ─────────────────────────────────────
+  // ─── 3. Cancel Appointment (Patient only) ───────────────────────────────────
   // PATCH /api/appointment/:id/cancel
   @Patch('appointment/:id/cancel')
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -54,9 +55,7 @@ export class AppointmentController {
       new ParseUUIDPipe({
         version: '4',
         exceptionFactory: () =>
-          new BadRequestException(
-            'Invalid appointment ID format',
-          ),
+          new BadRequestException('Invalid appointment ID format'),
       }),
     )
     id: string,
@@ -64,4 +63,24 @@ export class AppointmentController {
     return this.appointmentService.cancelAppointment(user.id, id);
   }
 
+  // ─── 4. Reschedule Appointment (Patient only) ───────────────────────────────
+  // PATCH /api/appointment/:id/reschedule
+  @Patch('appointment/:id/reschedule')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.PATIENT)
+  rescheduleAppointment(
+    @CurrentUser() user: { id: string },
+    @Param(
+      'id',
+      new ParseUUIDPipe({
+        version: '4',
+        exceptionFactory: () =>
+          new BadRequestException('Invalid appointment ID format'),
+      }),
+    )
+    id: string,
+    @Body() dto: RescheduleAppointmentDto,
+  ) {
+    return this.appointmentService.rescheduleAppointment(user.id, id, dto);
+  }
 }

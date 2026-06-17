@@ -7,8 +7,8 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { Doctor } from '../../doctor/entities/doctor.entity';
-import { Patient } from '../../patient/entities/patient.entity';
+import { DoctorProfile } from '../../doctor/doctor-profile.entity';
+import { PatientProfile } from '../../patient/patient-profile.entity';
 import { AppointmentStatus } from '../../common/enums/appointment-status.enum';
 
 @Entity('appointments')
@@ -19,25 +19,25 @@ export class Appointment {
   @Column({ type: 'uuid' })
   doctorId: string;
 
-  @ManyToOne(() => Doctor, { onDelete: 'CASCADE', eager: true })
+  @ManyToOne(() => DoctorProfile, { onDelete: 'CASCADE', eager: true })
   @JoinColumn({ name: 'doctorId' })
-  doctor: Doctor;
+  doctor: DoctorProfile;
 
   @Column({ type: 'uuid' })
   patientId: string;
 
-  @ManyToOne(() => Patient, { onDelete: 'CASCADE', eager: true })
+  @ManyToOne(() => PatientProfile, { onDelete: 'CASCADE', eager: true })
   @JoinColumn({ name: 'patientId' })
-  patient: Patient;
+  patient: PatientProfile;
 
   @Column({ type: 'date' })
-  date: string; // YYYY-MM-DD
+  date: string;
 
   @Column({ type: 'varchar', length: 5 })
-  startTime: string; // HH:MM
+  startTime: string;
 
   @Column({ type: 'varchar', length: 5 })
-  endTime: string; // HH:MM
+  endTime: string;
 
   @Column({ type: 'varchar', default: AppointmentStatus.BOOKED })
   status: AppointmentStatus;
