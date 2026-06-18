@@ -12,14 +12,15 @@ import { DoctorProfile } from './doctor-profile.entity';
 =======
 import { DoctorDiscoveryController } from './doctor-discovery.controller';
 import { DoctorDiscoveryService } from './doctor-discovery.service';
-import { AvailabilityModule } from './availability/availability.module';
+import { DoctorAppointmentsController } from './doctor-appointments.controller';
+import { AppointmentsModule } from '../appointments/appointments.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([DoctorProfile]),
-    AvailabilityModule,
+    AppointmentsModule,
   ],
-  controllers: [DoctorController, DoctorDiscoveryController],
+  controllers: [DoctorController, DoctorDiscoveryController, DoctorAppointmentsController],
   providers: [DoctorProfileService, DoctorDiscoveryService],
 >>>>>>> main
 })
