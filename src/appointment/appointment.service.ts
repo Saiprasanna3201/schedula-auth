@@ -34,12 +34,18 @@ export class AppointmentService {
   ) {}
 
   async bookAppointment(userId: string, dto: BookAppointmentDto) {
+    console.log('FULL DTO RECEIVED:', JSON.stringify(dto));
+    console.log('USER ID:', userId);
+
     const patient = await this.patientRepo.findOne({ where: { userId } });
     if (!patient) {
       throw new NotFoundException('Patient profile not found. Please create your profile first.');
     }
 
+    console.log('SEARCHING FOR DOCTOR ID:', dto.doctorId);
     const doctor = await this.doctorRepo.findOne({ where: { id: dto.doctorId } });
+    console.log('DB RETURNED:', JSON.stringify(doctor));
+
     if (!doctor) {
       throw new NotFoundException(`Doctor with ID ${dto.doctorId} not found`);
     }
