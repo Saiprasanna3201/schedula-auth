@@ -12,12 +12,14 @@ import { AppointmentModule } from './appointment/appointment.module';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+
     TypeOrmModule.forRoot({
       type: 'postgres',
       url: process.env.DATABASE_URL,
       autoLoadEntities: true,
       synchronize: true,
     }),
+
     AuthModule,
     DoctorModule,
     PatientModule,
