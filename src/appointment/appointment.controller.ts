@@ -1,0 +1,122 @@
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
+
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { Role } from '../common/enums/role.enum';
+
+import { AppointmentService } from './appointment.service';
+import { BookAppointmentDto } from './dto/book-appointment.dto';
+import { RescheduleAppointmentDto } from './dto/reschedule-appointment.dto';
+
+
+@ApiTags('Appointment')
+@ApiBearerAuth()
+@Controller()
+export class AppointmentController {
+
+  constructor(
+    private readonly appointmentService: AppointmentService,
+  ) {}
+
+
+  // POST /appointment
+  @Post('appointment')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.PATIENT)
+  bookAppointment(
+    @CurrentUser() user: { id: string },
+    @Body() dto: BookAppointmentDto,
+  ) {
+    return this.appointmentService.bookAppointment(
+      user.id,
+      dto,
+    );
+  }
+
+
+  // GET /appointment/my
+  @Get('appointment/my')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.PATIENT)
+  getMyAppointments(
+    @CurrentUser() user: { id: string },
+  ) {
+    return this.appointmentService.getPatientAppointments(
+      user.id,
+    );
+  }
+
+
+  // PATCH /appointment/:id/cancel
+  @Patch('appointment/:id/cancel')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.PATIENT)
+  cancelAppointment(
+    @CurrentUser() user: { id: string },
+
+    @Param(
+      'id',
+      new ParseUUIDPipe({
+        version: '4',
+        exceptionFactory: () =>
+          new BadRequestException(
+            'Invalid appointment ID format',
+          ),
+      }),
+    )
+    id: string,
+
+  ) {
+    return this.appointmentService.cancelAppointment(
+      user.id,
+      id,
+    );
+  }
+
+
+
+  // PATCH /appointment/:id/reschedule
+  @Patch('appointment/:id/reschedule')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.PATIENT)
+  rescheduleAppointment(
+    @CurrentUser() user: { id: string },
+
+    @Param(
+      'id',
+      new ParseUUIDPipe({
+        version: '4',
+        exceptionFactory: () =>
+          new BadRequestException(
+            'Invalid appointment ID format',
+          ),
+      }),
+    )
+    id: string,
+
+    @Body()
+    dto: RescheduleAppointmentDto,
+
+  ) {
+    return this.appointmentService.rescheduleAppointment(
+      user.id,
+      id,
+      dto,
+    );
+  }
+
+}
