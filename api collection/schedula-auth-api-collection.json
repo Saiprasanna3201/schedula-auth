@@ -1,0 +1,204 @@
+{
+  "v": "2",
+  "name": "Schedula Auth API",
+  "folders": [
+    {
+      "name": "Auth",
+      "requests": [
+        {
+          "name": "Signup",
+          "method": "POST",
+          "url": "{{baseUrl}}/auth/signup",
+          "headers": [{ "key": "Content-Type", "value": "application/json" }],
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n  \"name\": \"Dr. Arjun Mehta\",\n  \"email\": \"arjun@schedula.com\",\n  \"password\": \"Test@1234\",\n  \"role\": \"DOCTOR\"\n}"
+          }
+        },
+        {
+          "name": "Login",
+          "method": "POST",
+          "url": "{{baseUrl}}/auth/login",
+          "headers": [{ "key": "Content-Type", "value": "application/json" }],
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n  \"email\": \"arjun@schedula.com\",\n  \"password\": \"Test@1234\"\n}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Doctor Availability",
+      "requests": [
+        {
+          "name": "Set Recurring Availability",
+          "method": "POST",
+          "url": "{{baseUrl}}/doctor/availability",
+          "headers": [
+            { "key": "Content-Type", "value": "application/json" },
+            { "key": "Authorization", "value": "Bearer {{doctorToken}}" }
+          ],
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n  \"dayOfWeek\": \"MONDAY\",\n  \"startTime\": \"10:00\",\n  \"endTime\": \"13:00\"\n}"
+          }
+        },
+        {
+          "name": "Get My Recurring Availability",
+          "method": "GET",
+          "url": "{{baseUrl}}/doctor/availability",
+          "headers": [
+            { "key": "Authorization", "value": "Bearer {{doctorToken}}" }
+          ]
+        },
+        {
+          "name": "Update Availability Slot",
+          "method": "PATCH",
+          "url": "{{baseUrl}}/doctor/availability/{{availabilityId}}",
+          "headers": [
+            { "key": "Content-Type", "value": "application/json" },
+            { "key": "Authorization", "value": "Bearer {{doctorToken}}" }
+          ],
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n  \"startTime\": \"09:00\",\n  \"endTime\": \"12:00\"\n}"
+          }
+        },
+        {
+          "name": "Delete Availability Slot",
+          "method": "DELETE",
+          "url": "{{baseUrl}}/doctor/availability/{{availabilityId}}",
+          "headers": [
+            { "key": "Authorization", "value": "Bearer {{doctorToken}}" }
+          ]
+        },
+        {
+          "name": "Custom Date Override",
+          "method": "POST",
+          "url": "{{baseUrl}}/doctor/availability/override",
+          "headers": [
+            { "key": "Content-Type", "value": "application/json" },
+            { "key": "Authorization", "value": "Bearer {{doctorToken}}" }
+          ],
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n  \"date\": \"2026-06-23\",\n  \"startTime\": \"14:00\",\n  \"endTime\": \"15:00\"\n}"
+          }
+        },
+        {
+          "name": "Get Availability for Date",
+          "method": "GET",
+          "url": "{{baseUrl}}/doctor/availability/date?date=2026-06-23",
+          "headers": [
+            { "key": "Authorization", "value": "Bearer {{doctorToken}}" }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Slot Generation",
+      "requests": [
+        {
+          "name": "Generate Slots (Doctor)",
+          "method": "POST",
+          "url": "{{baseUrl}}/doctor/slots/generate",
+          "headers": [
+            { "key": "Content-Type", "value": "application/json" },
+            { "key": "Authorization", "value": "Bearer {{doctorToken}}" }
+          ],
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n  \"date\": \"2026-06-23\",\n  \"durationMinutes\": 30\n}"
+          }
+        },
+        {
+          "name": "View Available Slots (Patient)",
+          "method": "GET",
+          "url": "{{baseUrl}}/doctor/{{doctorId}}/slots?date=2026-06-23",
+          "headers": [
+            { "key": "Authorization", "value": "Bearer {{patientToken}}" }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Appointments",
+      "requests": [
+        {
+          "name": "Book Appointment (Patient)",
+          "method": "POST",
+          "url": "{{baseUrl}}/appointment",
+          "headers": [
+            { "key": "Content-Type", "value": "application/json" },
+            { "key": "Authorization", "value": "Bearer {{patientToken}}" }
+          ],
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n  \"doctorId\": \"{{doctorId}}\",\n  \"date\": \"2026-06-23\",\n  \"startTime\": \"10:00\",\n  \"endTime\": \"10:30\"\n}"
+          }
+        },
+        {
+          "name": "My Appointments (Patient)",
+          "method": "GET",
+          "url": "{{baseUrl}}/appointment/my",
+          "headers": [
+            { "key": "Authorization", "value": "Bearer {{patientToken}}" }
+          ]
+        },
+        {
+          "name": "Cancel Appointment (Patient)",
+          "method": "PATCH",
+          "url": "{{baseUrl}}/appointment/{{appointmentId}}/cancel",
+          "headers": [
+            { "key": "Authorization", "value": "Bearer {{patientToken}}" }
+          ]
+        },
+        {
+          "name": "Reschedule Appointment (Patient)",
+          "method": "PATCH",
+          "url": "{{baseUrl}}/appointment/{{appointmentId}}/reschedule",
+          "headers": [
+            { "key": "Content-Type", "value": "application/json" },
+            { "key": "Authorization", "value": "Bearer {{patientToken}}" }
+          ],
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n  \"newDate\": \"2026-06-25\",\n  \"newStartTime\": \"11:00\",\n  \"newEndTime\": \"11:30\"\n}"
+          }
+        },
+        {
+          "name": "Doctor - View Appointments",
+          "method": "GET",
+          "url": "{{baseUrl}}/doctor/appointments",
+          "headers": [
+            { "key": "Authorization", "value": "Bearer {{doctorToken}}" }
+          ]
+        }
+      ]
+    }
+  ],
+  "environments": [
+    {
+      "name": "Local",
+      "variables": [
+        { "key": "baseUrl", "value": "http://localhost:3000" },
+        { "key": "doctorToken", "value": "" },
+        { "key": "patientToken", "value": "" },
+        { "key": "doctorId", "value": "" },
+        { "key": "appointmentId", "value": "" },
+        { "key": "availabilityId", "value": "" }
+      ]
+    },
+    {
+      "name": "Production",
+      "variables": [
+        { "key": "baseUrl", "value": "https://schedula-auth.onrender.com" },
+        { "key": "doctorToken", "value": "" },
+        { "key": "patientToken", "value": "" },
+        { "key": "doctorId", "value": "" },
+        { "key": "appointmentId", "value": "" },
+        { "key": "availabilityId", "value": "" }
+      ]
+    }
+  ]
+}

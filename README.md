@@ -1,154 +1,216 @@
-# Schedula Auth — Role-Based Authentication (Day 2 Task)
+# Schedula Auth — Backend API
 
-## Tech Stack
-- **Framework**: NestJS (Node.js + TypeScript)
-- **Auth**: JWT via `@nestjs/jwt` + `passport-jwt`
-- **Password**: bcryptjs (hashed, salted)
-- **Docs**: Swagger UI (`/api`)
-- **Storage**: In-memory (swap with TypeORM/Prisma + DB for prod)
+A NestJS + PostgreSQL backend for a doctor-patient appointment scheduling system, built during the PearlThoughts Backend Internship Program.
+
+**Live Server:** https://schedula-auth.onrender.com  
+**Swagger Docs:** https://schedula-auth.onrender.com/api  
+**Repository:** https://github.com/Saiprasanna3201/schedula-auth
 
 ---
 
-## Quick Start
+## Tech Stack
+
+- **Framework:** NestJS (TypeScript)
+- **Database:** PostgreSQL (Neon)
+- **ORM:** TypeORM
+- **Auth:** JWT + Passport
+- **Docs:** Swagger / OpenAPI
+- **Deployment:** Render
+
+---
+
+## Project Setup
+
+### Prerequisites
+
+- Node.js v18+
+- npm v9+
+- PostgreSQL database (Neon recommended)
+
+### 1. Clone the repository
 
 ```bash
-# Install dependencies
-npm install
+git clone https://github.com/Saiprasanna3201/schedula-auth.git
+cd schedula-auth
+```
 
-# Run dev server
+### 2. Install dependencies
+
+```bash
+npm install
+```
+
+### 3. Create `.env` file
+
+```bash
+cp .env.example .env
+```
+
+Fill in the values (see Environment Variables section below).
+
+### 4. Run database migrations
+
+```bash
+npm run typeorm migration:run
+```
+
+### 5. Start the development server
+
+```bash
 npm run start:dev
 ```
 
-Server starts at **http://localhost:3000**  
-Swagger docs at **http://localhost:3000/api**
+The server starts at `http://localhost:3000`  
+Swagger UI is available at `http://localhost:3000/api`
 
 ---
 
-## API Endpoints
+## Environment Variables
 
-### Auth (Public)
+Create a `.env` file in the project root with these values:
 
-| Method | Route | Description |
-|--------|-------|-------------|
-| POST | `/auth/signup` | Register as DOCTOR or PATIENT |
-| POST | `/auth/login` | Login, receive JWT token |
+```env
+# Database
+DATABASE_URL=postgresql://username:password@host/dbname?sslmode=require
 
-### Doctor (JWT required — DOCTOR role only)
+# Auth
+JWT_SECRET=your_jwt_secret_key_here
 
-| Method | Route | Description |
-|--------|-------|-------------|
-| GET | `/doctor/profile` | ✅ DOCTOR only — ❌ PATIENT blocked |
-| GET | `/doctor/dashboard` | ✅ DOCTOR only — ❌ PATIENT blocked |
+# App
+PORT=3000
+```
 
-### Patient (JWT required — PATIENT role only)
-
-| Method | Route | Description |
-|--------|-------|-------------|
-| GET | `/patient/profile` | ✅ PATIENT only — ❌ DOCTOR blocked |
-| GET | `/patient/appointments` | ✅ PATIENT only — ❌ DOCTOR blocked |
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `DATABASE_URL` | PostgreSQL connection string (Neon format) | ✅ |
+| `JWT_SECRET` | Secret key for signing JWT tokens | ✅ |
+| `PORT` | Port the server runs on (default: 3000) | ❌ |
 
 ---
 
-## Testing with Postman / Hoppscotch
+## Features Implemented
 
-### Step 1 — Signup as DOCTOR
-```
-POST http://localhost:3000/auth/signup
-Content-Type: application/json
+### Day 5 — Authentication & User Management
+- `POST /auth/signup` — Register as Doctor or Patient
+- `POST /auth/login` — Login and receive JWT token
+- Role-based access control (DOCTOR / PATIENT)
+- JWT guard on all protected routes
 
-{
-  "name": "Dr. Arjun Mehta",
-  "email": "arjun@schedula.com",
-  "password": "strongPass123",
-  "role": "DOCTOR"
-}
-```
-Copy the `access_token` from response.
+### Day 6 — Doctor Availability
+- `POST /doctor/availability` — Set recurring weekly availability
+- `GET /doctor/availability` — View my recurring slots
+- `PATCH /doctor/availability/:id` — Update a slot
+- `DELETE /doctor/availability/:id` — Delete a slot
+- `POST /doctor/availability/override` — Custom date override
+- `GET /doctor/availability/date?date=YYYY-MM-DD` — Get availability for a specific date (override takes priority over recurring)
+- Overlap, duplicate, and invalid time validation
 
-### Step 2 — Signup as PATIENT
-```
-POST http://localhost:3000/auth/signup
-Content-Type: application/json
+### Day 7 — Slot Generation & Patient Slot View
+- `POST /doctor/slots/generate` — Generate time slots from availability (configurable duration)
+- `GET /doctor/:doctorId/slots?date=YYYY-MM-DD` — Patient views available slots for a doctor
+- Future-only slots, custom override priority, booked slots filtered out
 
-{
-  "name": "Priya Sharma",
-  "email": "priya@schedula.com",
-  "password": "patientPass123",
-  "role": "PATIENT"
-}
+### Day 8 — Appointment Booking & Management
+- `POST /appointment` — Patient books an available slot
+- `GET /appointment/my` — Patient views their appointments
+- `PATCH /appointment/:id/cancel` — Patient cancels an appointment
+- `GET /doctor/appointments` — Doctor views all their booked appointments
+- Duplicate booking prevention, past date/time checks, slot status management
+
+### Day 10 — Appointment Rescheduling
+- `PATCH /appointment/:id/reschedule` — Patient reschedules to a new slot
+- 30-minute cutoff rule (cannot reschedule if < 30 min before current appointment)
+- Atomic slot swap (old → AVAILABLE, new → BOOKED)
+- Next available slot suggestion when requested slot is unavailable
+- Validates: future date, different slot, ownership, not-cancelled status
+
+---
+
+## API Endpoints Summary
+
+| Method | Endpoint | Role | Description |
+|--------|----------|------|-------------|
+| POST | `/auth/signup` | Public | Register |
+| POST | `/auth/login` | Public | Login |
+| POST | `/doctor/availability` | Doctor | Set recurring availability |
+| GET | `/doctor/availability` | Doctor | View recurring availability |
+| PATCH | `/doctor/availability/:id` | Doctor | Update availability |
+| DELETE | `/doctor/availability/:id` | Doctor | Delete availability |
+| POST | `/doctor/availability/override` | Doctor | Custom date override |
+| GET | `/doctor/availability/date` | Any | Get slots for a date |
+| POST | `/doctor/slots/generate` | Doctor | Generate time slots |
+| GET | `/doctor/:doctorId/slots` | Patient | View available slots |
+| GET | `/doctor/appointments` | Doctor | View booked appointments |
+| POST | `/appointment` | Patient | Book appointment |
+| GET | `/appointment/my` | Patient | View my appointments |
+| PATCH | `/appointment/:id/cancel` | Patient | Cancel appointment |
+| PATCH | `/appointment/:id/reschedule` | Patient | Reschedule appointment |
+
+---
+
+## Database Schema
+
+```
+users
+  id (uuid PK)
+  name, email, password, role (DOCTOR|PATIENT)
+
+recurring_availability
+  id (uuid PK)
+  doctorId (FK → users)
+  dayOfWeek, startTime, endTime
+
+custom_availability
+  id (uuid PK)
+  doctorId (FK → users)
+  date, startTime, endTime
+
+slots
+  id (uuid PK)
+  doctorId (FK → users)
+  date, startTime, endTime, durationMinutes
+  status (AVAILABLE|BOOKED)
+
+appointments
+  id (uuid PK)
+  patientId, doctorId (FK → users)
+  slotId (FK → slots)
+  date, startTime, endTime
+  status (BOOKED|CANCELLED)
 ```
 
-### Step 3 — Login
-```
-POST http://localhost:3000/auth/login
-Content-Type: application/json
+All migrations are in `src/database/migrations/`. `synchronize: false` is enforced.
 
-{
-  "email": "arjun@schedula.com",
-  "password": "strongPass123"
-}
-```
+---
 
-### Step 4 — Access Doctor Profile (with DOCTOR token)
-```
-GET http://localhost:3000/doctor/profile
-Authorization: Bearer <DOCTOR_TOKEN>
-→ 200 OK ✅
-```
+## Running Tests
 
-### Step 5 — Try Doctor route with PATIENT token
-```
-GET http://localhost:3000/doctor/profile
-Authorization: Bearer <PATIENT_TOKEN>
-→ 403 Forbidden ❌
-```
+```bash
+# Unit tests
+npm run test
 
-### Step 6 — Patient Profile (with PATIENT token)
-```
-GET http://localhost:3000/patient/profile
-Authorization: Bearer <PATIENT_TOKEN>
-→ 200 OK ✅
-```
-
-### Step 7 — No token at all
-```
-GET http://localhost:3000/doctor/profile
-→ 401 Unauthorized ❌
+# E2E tests
+npm run test:e2e
 ```
 
 ---
 
-## Project Structure
+## Deployment
 
-```
-src/
-├── main.ts                         # Bootstrap + Swagger
-├── app.module.ts                   # Root module
-├── common/
-│   ├── types.ts                    # Role enum, User interface, in-memory store
-│   ├── decorators/
-│   │   └── roles.decorator.ts      # @Roles() decorator
-│   └── guards/
-│       ├── jwt-auth.guard.ts       # Validates JWT
-│       └── roles.guard.ts          # Checks role from JWT payload
-├── auth/
-│   ├── auth.dto.ts                 # SignupDto, LoginDto (class-validator)
-│   ├── jwt.strategy.ts             # Passport JWT strategy
-│   ├── auth.service.ts             # Signup / Login logic
-│   ├── auth.controller.ts          # POST /auth/signup, /auth/login
-│   └── auth.module.ts
-├── doctor/
-│   ├── doctor.controller.ts        # GET /doctor/profile, /doctor/dashboard
-│   └── doctor.module.ts
-└── patient/
-    ├── patient.controller.ts       # GET /patient/profile, /patient/appointments
-    └── patient.module.ts
-```
+This project is deployed on **Render** with auto-deploy on push to `main`.
+
+- Build command: `npm install`
+- Start command: `npm run start:dev`
+- Environment variables are set in the Render dashboard
 
 ---
 
-## Production Checklist
-- [ ] Replace in-memory `users[]` with TypeORM/Prisma + PostgreSQL
-- [ ] Store JWT_SECRET in `.env` and never commit it
-- [ ] Add refresh token logic
-- [ ] Add email verification on signup
+## API Collection
+
+Import the Hoppscotch/Postman collection from the `api-collection/` folder in this repository, or use the live Swagger UI at https://schedula-auth.onrender.com/api.
+
+---
+
+## Author
+
+**Sai Prasanna** — PearlThoughts Backend Internship, 2026
