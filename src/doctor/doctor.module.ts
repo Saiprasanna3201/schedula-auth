@@ -3,27 +3,24 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { DoctorController } from './doctor.controller';
 import { DoctorProfileService } from './doctor-profile.service';
 import { DoctorProfile } from './doctor-profile.entity';
-<<<<<<< HEAD
-
-@Module({
-  imports: [TypeOrmModule.forFeature([DoctorProfile])],
-  controllers: [DoctorController],
-  providers: [DoctorProfileService],
-=======
 import { DoctorDiscoveryController } from './doctor-discovery.controller';
 import { DoctorDiscoveryService } from './doctor-discovery.service';
 import { DoctorAppointmentsController } from './doctor-appointments.controller';
-import { AppointmentsModule } from '../appointments/appointments.module';
+import { DoctorAppointmentService } from './doctor-appointment.service';
 import { AvailabilityModule } from './availability/availability.module';
+import { User } from '../user.entity';
+import { Appointment } from '../appointment/entities/appointment.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([DoctorProfile]),
-    AppointmentsModule,
+    TypeOrmModule.forFeature([DoctorProfile, User, Appointment]),
     AvailabilityModule,
   ],
-  controllers: [DoctorController, DoctorDiscoveryController, DoctorAppointmentsController],
-  providers: [DoctorProfileService, DoctorDiscoveryService],
->>>>>>> main
+  controllers: [
+    DoctorController,
+    DoctorAppointmentsController,
+    DoctorDiscoveryController,
+  ],
+  providers: [DoctorProfileService, DoctorDiscoveryService, DoctorAppointmentService],
 })
 export class DoctorModule {}
