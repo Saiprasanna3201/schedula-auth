@@ -6,25 +6,25 @@ import { DoctorModule } from './doctor/doctor.module';
 import { PatientModule } from './patient/patient.module';
 import { SlotsModule } from './slots/slots.module';
 import { AppointmentModule } from './appointment/appointment.module';
+import { NextAvailableModule } from './next-available/next-available.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-
     TypeOrmModule.forRoot({
       type: 'postgres',
       url: process.env.DATABASE_URL,
       autoLoadEntities: true,
       synchronize: true,
     }),
-
     AuthModule,
     DoctorModule,
     PatientModule,
     SlotsModule,
     AppointmentModule,
+    NextAvailableModule,
   ],
 })
 export class AppModule {}
