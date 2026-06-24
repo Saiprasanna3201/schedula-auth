@@ -7,6 +7,8 @@ import { PatientModule } from './patient/patient.module';
 import { SlotsModule } from './slots/slots.module';
 import { AppointmentModule } from './appointment/appointment.module';
 import { NextAvailableModule } from './next-available/next-available.module';
+import { SchedulingModule } from './scheduling/scheduling.module';
+import { NotificationModule } from './notification/notification.module';
 
 @Module({
   imports: [
@@ -25,6 +27,8 @@ import { NextAvailableModule } from './next-available/next-available.module';
     SlotsModule,
     AppointmentModule,
     NextAvailableModule,
+    SchedulingModule,
+    NotificationModule,
   ],
 })
 export class AppModule {}
