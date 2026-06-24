@@ -16,6 +16,8 @@ import { DoctorProfile } from '../doctor/doctor-profile.entity';
 import { PatientProfile } from '../patient/patient-profile.entity';
 import { AvailabilityService } from '../doctor/availability/availability.service';
 import { AppointmentStatus } from '../common/enums/appointment-status.enum';
+import { NotificationService } from '../notification/notification.service';
+import { NotificationType } from '../notification/entities/notification.entity';
 
 @Injectable()
 export class AppointmentService {
@@ -31,21 +33,30 @@ export class AppointmentService {
 
     @Inject(forwardRef(() => AvailabilityService))
     private readonly availabilityService: AvailabilityService,
+
+    private readonly notificationService: NotificationService,
   ) {}
 
-  async bookAppointment(userId: string, dto: BookAppointmentDto) {
-    console.log('FULL DTO RECEIVED:', JSON.stringify(dto));
-    console.log('USER ID:', userId);
+  private formatDateTime(date: string, time: string): string {
+    const [year, month, day] = date.split('-').map(Number);
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December',
+    ];
+    const [h, m] = time.split(':').map(Number);
+    const period = h >= 12 ? 'PM' : 'AM';
+    const hour12 = h % 12 === 0 ? 12 : h % 12;
+    const formattedTime = `${hour12}:${m.toString().padStart(2, '0')} ${period}`;
+    return `${day} ${months[month - 1]} at ${formattedTime}`;
+  }
 
+  async bookAppointment(userId: string, dto: BookAppointmentDto) {
     const patient = await this.patientRepo.findOne({ where: { userId } });
     if (!patient) {
       throw new NotFoundException('Patient profile not found. Please create your profile first.');
     }
 
-    console.log('SEARCHING FOR DOCTOR ID:', dto.doctorId);
     const doctor = await this.doctorRepo.findOne({ where: { id: dto.doctorId } });
-    console.log('DB RETURNED:', JSON.stringify(doctor));
-
     if (!doctor) {
       throw new NotFoundException(`Doctor with ID ${dto.doctorId} not found`);
     }
@@ -92,6 +103,18 @@ export class AppointmentService {
       where: { id: saved.id },
       relations: { doctor: true, patient: true },
     });
+
+    try {
+      const when = this.formatDateTime(saved.date, saved.startTime);
+      await this.notificationService.createNotification(
+        patient.id,
+        'Appointment Booked',
+        `Your appointment with ${doctor.fullName} has been booked successfully for ${when}.`,
+        NotificationType.APPOINTMENT_BOOKED,
+      );
+    } catch (err) {
+      console.error('Failed to create booking notification:', err);
+    }
 
     return {
       message: 'Appointment booked successfully',
@@ -148,6 +171,18 @@ export class AppointmentService {
 
     appointment.status = AppointmentStatus.CANCELLED;
     const saved = await this.appointmentRepo.save(appointment);
+
+    try {
+      const when = this.formatDateTime(saved.date, saved.startTime);
+      await this.notificationService.createNotification(
+        patient.id,
+        'Appointment Cancelled',
+        `Your appointment scheduled on ${when} has been cancelled.`,
+        NotificationType.APPOINTMENT_CANCELLED,
+      );
+    } catch (err) {
+      console.error('Failed to create cancellation notification:', err);
+    }
 
     return {
       message: 'Appointment cancelled successfully',
@@ -221,6 +256,18 @@ export class AppointmentService {
 
     const saved = await this.appointmentRepo.save(appointment);
 
+    try {
+      const when = this.formatDateTime(saved.date, saved.startTime);
+      await this.notificationService.createNotification(
+        patient.id,
+        'Appointment Rescheduled',
+        `Your appointment has been rescheduled to ${when}.`,
+        NotificationType.APPOINTMENT_RESCHEDULED,
+      );
+    } catch (err) {
+      console.error('Failed to create reschedule notification:', err);
+    }
+
     return {
       message: 'Appointment rescheduled successfully',
       data: this.toPatientAppointmentResponse(saved),
@@ -246,6 +293,50 @@ export class AppointmentService {
     return {
       message: 'Appointments retrieved successfully',
       data: appointments.map((appt) => this.toDoctorAppointmentResponse(appt)),
+    };
+  }
+
+  async doctorCancelAppointment(doctorUserId: string, appointmentId: string) {
+    const doctor = await this.doctorRepo.findOne({ where: { userId: doctorUserId } });
+    if (!doctor) {
+      throw new NotFoundException('Doctor profile not found. Please create your profile first.');
+    }
+
+    const appointment = await this.appointmentRepo.findOne({
+      where: { id: appointmentId },
+      relations: { doctor: true, patient: true },
+    });
+
+    if (!appointment) {
+      throw new NotFoundException(`Appointment with ID ${appointmentId} not found`);
+    }
+
+    if (appointment.doctorId !== doctor.id) {
+      throw new ForbiddenException('You are not authorized to cancel this appointment');
+    }
+
+    if (appointment.status === AppointmentStatus.CANCELLED) {
+      throw new BadRequestException('This appointment is already cancelled');
+    }
+
+    appointment.status = AppointmentStatus.CANCELLED;
+    const saved = await this.appointmentRepo.save(appointment);
+
+    try {
+      const when = this.formatDateTime(saved.date, saved.startTime);
+      await this.notificationService.createNotification(
+        appointment.patientId,
+        'Appointment Cancelled',
+        `Your appointment scheduled on ${when} has been cancelled by the doctor.`,
+        NotificationType.APPOINTMENT_CANCELLED,
+      );
+    } catch (err) {
+      console.error('Failed to create cancellation notification:', err);
+    }
+
+    return {
+      message: 'Appointment cancelled successfully',
+      data: this.toDoctorAppointmentResponse(saved),
     };
   }
 
