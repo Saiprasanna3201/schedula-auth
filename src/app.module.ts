@@ -9,6 +9,7 @@ import { AppointmentModule } from './appointment/appointment.module';
 import { NextAvailableModule } from './next-available/next-available.module';
 import { SchedulingModule } from './scheduling/scheduling.module';
 import { NotificationModule } from './notification/notification.module';
+import { ReminderModule } from './reminder/reminder.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { NotificationModule } from './notification/notification.module';
     NextAvailableModule,
     SchedulingModule,
     NotificationModule,
+    ReminderModule,
   ],
 })
 export class AppModule {}

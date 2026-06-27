@@ -22,6 +22,7 @@ import { NotificationType } from '../notification/entities/notification.entity';
 @Injectable()
 export class AppointmentService {
   constructor(
+    
     @InjectRepository(Appointment)
     private readonly appointmentRepo: Repository<Appointment>,
 
