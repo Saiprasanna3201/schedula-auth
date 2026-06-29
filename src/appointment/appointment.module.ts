@@ -6,15 +6,15 @@ import { Appointment } from './entities/appointment.entity';
 import { DoctorProfile } from '../doctor/doctor-profile.entity';
 import { PatientProfile } from '../patient/patient-profile.entity';
 import { DoctorModule } from '../doctor/doctor.module';
-import { AvailabilityModule } from '../doctor/availability/availability.module';
 import { NotificationModule } from '../notification/notification.module';
+import { AvailabilityModule } from '../doctor/availability/availability.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Appointment, DoctorProfile, PatientProfile]),
     forwardRef(() => DoctorModule),
-    AvailabilityModule,
     NotificationModule,
+    AvailabilityModule,
   ],
   controllers: [AppointmentController],
   providers: [AppointmentService],
