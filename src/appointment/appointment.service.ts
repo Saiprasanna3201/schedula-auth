@@ -22,7 +22,6 @@ import { NotificationType } from '../notification/entities/notification.entity';
 @Injectable()
 export class AppointmentService {
   constructor(
-    
     @InjectRepository(Appointment)
     private readonly appointmentRepo: Repository<Appointment>,
 
@@ -62,7 +61,7 @@ export class AppointmentService {
       throw new NotFoundException(`Doctor with ID ${dto.doctorId} not found`);
     }
 
-    this.validateFutureDateTime(dto.date, dto.startTime);
+    this.validateTodayOnly(dto.date, dto.startTime);
 
     const existingBooking = await this.appointmentRepo.findOne({
       where: {
@@ -224,7 +223,7 @@ export class AppointmentService {
       throw new BadRequestException('New slot is the same as the current slot');
     }
 
-    this.validateFutureDateTime(dto.date, dto.startTime);
+    this.validateTodayOnly(dto.date, dto.startTime);
 
     const conflict = await this.appointmentRepo.findOne({
       where: {
@@ -370,22 +369,26 @@ export class AppointmentService {
     };
   }
 
-  private validateFutureDateTime(date: string, startTime: string): void {
+  // ─── Day 18: Today-only booking validation ───────────────────────────────────
+  private validateTodayOnly(date: string, startTime: string): void {
     const now = new Date();
     const todayStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
 
     if (date < todayStr) {
-      throw new BadRequestException('Cannot book appointment for a past date');
+      throw new BadRequestException('Bookings for past dates are not allowed');
     }
 
-    if (date === todayStr) {
-      const currentMinutes = now.getHours() * 60 + now.getMinutes();
-      const [h, m] = startTime.split(':').map(Number);
-      const slotMinutes = h * 60 + m;
+    if (date > todayStr) {
+      throw new BadRequestException('Bookings are only allowed for today. Future date bookings are not permitted');
+    }
 
-      if (slotMinutes <= currentMinutes) {
-        throw new BadRequestException('Cannot book appointment for a past time slot');
-      }
+    // date === today — check time is still in future
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    const [h, m] = startTime.split(':').map(Number);
+    const slotMinutes = h * 60 + m;
+
+    if (slotMinutes <= currentMinutes) {
+      throw new BadRequestException('Cannot book appointment for a past time slot');
     }
   }
 
