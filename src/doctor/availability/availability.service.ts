@@ -20,7 +20,7 @@ export class AvailabilityService {
     private customRepo: Repository<CustomAvailability>,
   ) {}
 
-  // ─── Helpers ────────────────────────────────────────────────────────────────
+  // ─── Helpers ─────────────────────────────────────────────────────────────────
 
   private toMinutes(time: string): number {
     const [h, m] = time.split(':').map(Number);
@@ -43,12 +43,11 @@ export class AvailabilityService {
     );
   }
 
-  // ─── Recurring Availability ─────────────────────────────────────────────────
+  // ─── Recurring Availability ───────────────────────────────────────────────────
 
   async createRecurring(doctorId: string, dto: CreateRecurringAvailabilityDto) {
     this.validateTimeRange(dto.startTime, dto.endTime);
 
-    // Check for overlapping slots on same day
     const existing = await this.recurringRepo.find({
       where: { doctorId, dayOfWeek: dto.dayOfWeek },
     });
@@ -56,10 +55,9 @@ export class AvailabilityService {
     for (const slot of existing) {
       if (this.timesOverlap(dto.startTime, dto.endTime, slot.startTime, slot.endTime)) {
         throw new BadRequestException(
-          `Time slot overlaps with existing slot ${slot.startTime}–${slot.endTime} on ${dto.dayOfWeek}`,
+          `Time slot overlaps with existing slot ${slot.startTime}-${slot.endTime} on ${dto.dayOfWeek}`,
         );
       }
-      // Duplicate check
       if (slot.startTime === dto.startTime && slot.endTime === dto.endTime) {
         throw new BadRequestException('Duplicate availability slot');
       }
@@ -91,7 +89,6 @@ export class AvailabilityService {
 
     this.validateTimeRange(newStart, newEnd);
 
-    // Check overlaps excluding current slot
     const others = await this.recurringRepo.find({
       where: { doctorId, dayOfWeek: newDay },
     });
@@ -100,12 +97,21 @@ export class AvailabilityService {
       if (other.id === id) continue;
       if (this.timesOverlap(newStart, newEnd, other.startTime, other.endTime)) {
         throw new BadRequestException(
-          `Updated slot overlaps with ${other.startTime}–${other.endTime}`,
+          `Updated slot overlaps with ${other.startTime}-${other.endTime}`,
         );
       }
     }
 
-    Object.assign(slot, { startTime: newStart, endTime: newEnd, dayOfWeek: newDay });
+    Object.assign(slot, {
+      startTime: newStart,
+      endTime: newEnd,
+      dayOfWeek: newDay,
+      allowFutureBooking: dto.allowFutureBooking ?? slot.allowFutureBooking,
+      maxFutureBookingDays: dto.maxFutureBookingDays !== undefined
+        ? dto.maxFutureBookingDays
+        : slot.maxFutureBookingDays,
+    });
+
     return this.recurringRepo.save(slot);
   }
 
@@ -117,18 +123,16 @@ export class AvailabilityService {
     return { message: 'Availability slot deleted successfully' };
   }
 
-  // ─── Custom Override ────────────────────────────────────────────────────────
+  // ─── Custom Override ──────────────────────────────────────────────────────────
 
   async createOverride(doctorId: string, dto: CreateCustomAvailabilityDto) {
     this.validateTimeRange(dto.startTime, dto.endTime);
 
-    // Validate date is not in the past
     const today = new Date().toISOString().split('T')[0];
     if (dto.date < today) {
       throw new BadRequestException('Cannot set availability for a past date');
     }
 
-    // Check for overlaps on same date
     const existing = await this.customRepo.find({
       where: { doctorId, date: dto.date },
     });
@@ -136,7 +140,7 @@ export class AvailabilityService {
     for (const slot of existing) {
       if (this.timesOverlap(dto.startTime, dto.endTime, slot.startTime, slot.endTime)) {
         throw new BadRequestException(
-          `Time slot overlaps with existing override ${slot.startTime}–${slot.endTime} on ${dto.date}`,
+          `Time slot overlaps with existing override ${slot.startTime}-${slot.endTime} on ${dto.date}`,
         );
       }
       if (slot.startTime === dto.startTime && slot.endTime === dto.endTime) {
@@ -153,7 +157,6 @@ export class AvailabilityService {
       throw new BadRequestException('date query param must be YYYY-MM-DD');
     }
 
-    // Check if custom override exists for this date
     const customSlots = await this.customRepo.find({
       where: { doctorId, date },
       order: { startTime: 'ASC' },
@@ -167,8 +170,7 @@ export class AvailabilityService {
       };
     }
 
-    // Fall back to recurring availability for day of week
-    const dayNames = ['SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY'];
+    const dayNames = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
     const dayOfWeek = dayNames[new Date(date).getDay()] as DayOfWeek;
 
     const recurringSlots = await this.recurringRepo.find({

@@ -35,10 +35,16 @@ export class RecurringAvailability {
   dayOfWeek: DayOfWeek;
 
   @Column({ type: 'time' })
-  startTime: string; // HH:MM format
+  startTime: string;
 
   @Column({ type: 'time' })
-  endTime: string; // HH:MM format
+  endTime: string;
+
+  @Column({ type: 'boolean', default: false })
+  allowFutureBooking: boolean;
+
+  @Column({ type: 'int', nullable: true })
+  maxFutureBookingDays: number;
 
   @CreateDateColumn()
   createdAt: Date;
