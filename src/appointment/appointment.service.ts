@@ -62,6 +62,7 @@ export class AppointmentService {
     }
 
     this.validateTodayOnly(dto.date, dto.startTime);
+    await this.validateBookingWindow(dto.doctorId, dto.date);
 
     const existingBooking = await this.appointmentRepo.findOne({
       where: {
@@ -224,6 +225,7 @@ export class AppointmentService {
     }
 
     this.validateTodayOnly(dto.date, dto.startTime);
+    await this.validateBookingWindow(appointment.doctorId, dto.date);
 
     const conflict = await this.appointmentRepo.findOne({
       where: {
@@ -382,7 +384,6 @@ export class AppointmentService {
       throw new BadRequestException('Bookings are only allowed for today. Future date bookings are not permitted');
     }
 
-    // date === today — check time is still in future
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
     const [h, m] = startTime.split(':').map(Number);
     const slotMinutes = h * 60 + m;
@@ -390,6 +391,55 @@ export class AppointmentService {
     if (slotMinutes <= currentMinutes) {
       throw new BadRequestException('Cannot book appointment for a past time slot');
     }
+  }
+
+  // ─── Day 19: Time-based booking window validation ────────────────────────────
+  private async validateBookingWindow(doctorProfileId: string, date: string): Promise<void> {
+    // availability is stored by userId, not profile id — look up userId first
+    const doctor = await this.doctorRepo.findOne({ where: { id: doctorProfileId } });
+    if (!doctor) {
+      throw new BadRequestException('Doctor not found');
+    }
+
+    const availability = await this.availabilityService.getAvailabilityForDate(doctor.userId, date);
+
+    if (!availability.slots || availability.slots.length === 0) {
+      throw new BadRequestException('Doctor is not available on this date');
+    }
+
+    const starts = availability.slots.map((s) => this.toMinutesLocal(s.startTime));
+    const ends = availability.slots.map((s) => this.toMinutesLocal(s.endTime));
+    const consultationStart = Math.min(...starts);
+    const consultationEnd = Math.max(...ends);
+
+    const bookingOpensAt = consultationStart - 120;
+    const bookingClosesAt = consultationEnd - 60;
+
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
+
+    if (date !== todayStr) {
+      throw new BadRequestException('Bookings are only allowed for today');
+    }
+
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+    if (nowMinutes < bookingOpensAt) {
+      throw new BadRequestException(
+        `Booking window has not opened yet. Booking opens at ${this.minutesToTime(bookingOpensAt)}.`,
+      );
+    }
+
+    if (nowMinutes > bookingClosesAt) {
+      throw new BadRequestException(
+        `Booking window has closed. Booking closed at ${this.minutesToTime(bookingClosesAt)}.`,
+      );
+    }
+  }
+
+  private toMinutesLocal(time: string): number {
+    const [h, m] = time.split(':').map(Number);
+    return h * 60 + m;
   }
 
   private validateCutoff(date: string, startTime: string): void {
