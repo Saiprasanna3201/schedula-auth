@@ -8,10 +8,11 @@ import { PatientProfile } from '../patient/patient-profile.entity';
 import { DoctorModule } from '../doctor/doctor.module';
 import { NotificationModule } from '../notification/notification.module';
 import { AvailabilityModule } from '../doctor/availability/availability.module';
+import { RecurringAvailability } from '../doctor/availability/recurring-availability.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Appointment, DoctorProfile, PatientProfile]),
+    TypeOrmModule.forFeature([Appointment, DoctorProfile, PatientProfile, RecurringAvailability]),
     forwardRef(() => DoctorModule),
     NotificationModule,
     AvailabilityModule,

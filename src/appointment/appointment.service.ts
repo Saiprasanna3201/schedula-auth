@@ -15,6 +15,7 @@ import { RescheduleAppointmentDto } from './dto/reschedule-appointment.dto';
 import { DoctorProfile } from '../doctor/doctor-profile.entity';
 import { PatientProfile } from '../patient/patient-profile.entity';
 import { AvailabilityService } from '../doctor/availability/availability.service';
+import { RecurringAvailability } from '../doctor/availability/recurring-availability.entity';
 import { AppointmentStatus } from '../common/enums/appointment-status.enum';
 import { NotificationService } from '../notification/notification.service';
 import { NotificationType } from '../notification/entities/notification.entity';
@@ -30,6 +31,9 @@ export class AppointmentService {
 
     @InjectRepository(PatientProfile)
     private readonly patientRepo: Repository<PatientProfile>,
+
+    @InjectRepository(RecurringAvailability)
+    private readonly availabilityRepo: Repository<RecurringAvailability>,
 
     @Inject(forwardRef(() => AvailabilityService))
     private readonly availabilityService: AvailabilityService,
@@ -61,7 +65,7 @@ export class AppointmentService {
       throw new NotFoundException(`Doctor with ID ${dto.doctorId} not found`);
     }
 
-    this.validateTodayOnly(dto.date, dto.startTime);
+    await this.validateDateAndFutureBooking(doctor.userId, dto.date, dto.startTime);
     await this.validateBookingWindow(dto.doctorId, dto.date);
 
     const existingBooking = await this.appointmentRepo.findOne({
@@ -224,7 +228,8 @@ export class AppointmentService {
       throw new BadRequestException('New slot is the same as the current slot');
     }
 
-    this.validateTodayOnly(dto.date, dto.startTime);
+    const doctor = await this.doctorRepo.findOne({ where: { id: appointment.doctorId } });
+    await this.validateDateAndFutureBooking(doctor!.userId, dto.date, dto.startTime);
     await this.validateBookingWindow(appointment.doctorId, dto.date);
 
     const conflict = await this.appointmentRepo.findOne({
@@ -371,8 +376,12 @@ export class AppointmentService {
     };
   }
 
-  // ─── Day 18: Today-only booking validation ───────────────────────────────────
-  private validateTodayOnly(date: string, startTime: string): void {
+  // ─── Day 18 + 20: Date & future booking validation ───────────────────────────
+  private async validateDateAndFutureBooking(
+    doctorUserId: string,
+    date: string,
+    startTime: string,
+  ): Promise<void> {
     const now = new Date();
     const todayStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
 
@@ -380,26 +389,53 @@ export class AppointmentService {
       throw new BadRequestException('Bookings for past dates are not allowed');
     }
 
-    if (date > todayStr) {
-      throw new BadRequestException('Bookings are only allowed for today. Future date bookings are not permitted');
+    if (date === todayStr) {
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+      const [h, m] = startTime.split(':').map(Number);
+      const slotMinutes = h * 60 + m;
+      if (slotMinutes <= currentMinutes) {
+        throw new BadRequestException('Cannot book appointment for a past time slot');
+      }
+      return; // today is always allowed (within time)
     }
 
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
-    const [h, m] = startTime.split(':').map(Number);
-    const slotMinutes = h * 60 + m;
+    // date > todayStr — future date
+    const DAY_NAMES = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+    const dayOfWeek = DAY_NAMES[new Date(date).getDay()];
 
-    if (slotMinutes <= currentMinutes) {
-      throw new BadRequestException('Cannot book appointment for a past time slot');
+    const availability = await this.availabilityRepo.findOne({
+      where: { doctorId: doctorUserId, dayOfWeek: dayOfWeek as any },
+    });
+
+    if (!availability) {
+      throw new BadRequestException(`Doctor is not available on ${dayOfWeek}`);
+    }
+
+    if (!availability.allowFutureBooking) {
+      throw new BadRequestException('This doctor only accepts same-day appointments');
+    }
+
+    const maxDays = availability.maxFutureBookingDays ?? 7;
+    const diffTime = new Date(date).getTime() - new Date(todayStr).getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays > maxDays) {
+      throw new BadRequestException(
+        `Booking only allowed up to ${maxDays} days in advance. Requested ${diffDays} days ahead.`,
+      );
     }
   }
 
   // ─── Day 19: Time-based booking window validation ────────────────────────────
   private async validateBookingWindow(doctorProfileId: string, date: string): Promise<void> {
-    // availability is stored by userId, not profile id — look up userId first
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
+
+    // Booking window only applies to today
+    if (date !== todayStr) return;
+
     const doctor = await this.doctorRepo.findOne({ where: { id: doctorProfileId } });
-    if (!doctor) {
-      throw new BadRequestException('Doctor not found');
-    }
+    if (!doctor) throw new BadRequestException('Doctor not found');
 
     const availability = await this.availabilityService.getAvailabilityForDate(doctor.userId, date);
 
@@ -414,13 +450,6 @@ export class AppointmentService {
 
     const bookingOpensAt = consultationStart - 120;
     const bookingClosesAt = consultationEnd - 60;
-
-    const now = new Date();
-    const todayStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
-
-    if (date !== todayStr) {
-      throw new BadRequestException('Bookings are only allowed for today');
-    }
 
     const nowMinutes = now.getHours() * 60 + now.getMinutes();
 
