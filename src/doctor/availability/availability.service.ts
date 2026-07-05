@@ -8,16 +8,30 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { RecurringAvailability, DayOfWeek } from './recurring-availability.entity';
 import { CustomAvailability } from './custom-availability.entity';
+import { Appointment } from '../../appointment/entities/appointment.entity';
+import { Notification, NotificationType } from '../../notification/entities/notification.entity';
+import { PatientProfile } from '../../patient/patient-profile.entity';
 import { CreateRecurringAvailabilityDto, UpdateRecurringAvailabilityDto } from './dto/recurring-availability.dto';
 import { CreateCustomAvailabilityDto } from './dto/custom-availability.dto';
+import { AppointmentStatus } from '../../common/enums/appointment-status.enum';
 
 @Injectable()
 export class AvailabilityService {
   constructor(
     @InjectRepository(RecurringAvailability)
     private recurringRepo: Repository<RecurringAvailability>,
+
     @InjectRepository(CustomAvailability)
     private customRepo: Repository<CustomAvailability>,
+
+    @InjectRepository(Appointment)
+    private appointmentRepo: Repository<Appointment>,
+
+    @InjectRepository(Notification)
+    private notificationRepo: Repository<Notification>,
+
+    @InjectRepository(PatientProfile)
+    private patientRepo: Repository<PatientProfile>,
   ) {}
 
   // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -43,7 +57,7 @@ export class AvailabilityService {
     );
   }
 
-  // ─── Recurring Availability ───────────────────────────────────────────────────
+  // ─── Recurring Availability ──────────────────────────────────────────────────
 
   async createRecurring(doctorId: string, dto: CreateRecurringAvailabilityDto) {
     this.validateTimeRange(dto.startTime, dto.endTime);
@@ -74,11 +88,7 @@ export class AvailabilityService {
     });
   }
 
-  async updateRecurring(
-    doctorId: string,
-    id: string,
-    dto: UpdateRecurringAvailabilityDto,
-  ) {
+  async updateRecurring(doctorId: string, id: string, dto: UpdateRecurringAvailabilityDto) {
     const slot = await this.recurringRepo.findOne({ where: { id } });
     if (!slot) throw new NotFoundException('Availability slot not found');
     if (slot.doctorId !== doctorId) throw new ForbiddenException('Access denied');
@@ -102,16 +112,10 @@ export class AvailabilityService {
       }
     }
 
-    Object.assign(slot, {
-      startTime: newStart,
-      endTime: newEnd,
-      dayOfWeek: newDay,
-      allowFutureBooking: dto.allowFutureBooking ?? slot.allowFutureBooking,
-      maxFutureBookingDays: dto.maxFutureBookingDays !== undefined
-        ? dto.maxFutureBookingDays
-        : slot.maxFutureBookingDays,
-    });
+    if (dto.allowFutureBooking !== undefined) slot.allowFutureBooking = dto.allowFutureBooking;
+    if (dto.maxFutureBookingDays !== undefined) slot.maxFutureBookingDays = dto.maxFutureBookingDays;
 
+    Object.assign(slot, { startTime: newStart, endTime: newEnd, dayOfWeek: newDay });
     return this.recurringRepo.save(slot);
   }
 
@@ -123,7 +127,7 @@ export class AvailabilityService {
     return { message: 'Availability slot deleted successfully' };
   }
 
-  // ─── Custom Override ──────────────────────────────────────────────────────────
+  // ─── Custom Override (Day 22: Auto-Cancel conflicting appointments) ──────────
 
   async createOverride(doctorId: string, dto: CreateCustomAvailabilityDto) {
     this.validateTimeRange(dto.startTime, dto.endTime);
@@ -133,6 +137,7 @@ export class AvailabilityService {
       throw new BadRequestException('Cannot set availability for a past date');
     }
 
+    // Check for overlaps on same date
     const existing = await this.customRepo.find({
       where: { doctorId, date: dto.date },
     });
@@ -148,8 +153,60 @@ export class AvailabilityService {
       }
     }
 
+    // Find all BOOKED appointments for this doctor on this date
+    const bookedAppointments = await this.appointmentRepo.find({
+      where: {
+        doctorId,
+        date: dto.date,
+        status: AppointmentStatus.BOOKED,
+      },
+    });
+
+    // Find appointments that fall OUTSIDE the new availability window
+    const conflicting = bookedAppointments.filter((appt) => {
+      const apptStart = this.toMinutes(appt.startTime);
+      const apptEnd = this.toMinutes(appt.endTime);
+      const newStart = this.toMinutes(dto.startTime);
+      const newEnd = this.toMinutes(dto.endTime);
+      // Appointment is outside new window if it doesn't overlap with new window
+      return !(apptStart >= newStart && apptEnd <= newEnd);
+    });
+
+    // Auto-cancel conflicting appointments and notify patients
+    let cancelledCount = 0;
+    for (const appt of conflicting) {
+      appt.status = AppointmentStatus.CANCELLED;
+      await this.appointmentRepo.save(appt);
+      cancelledCount++;
+
+      // Send notification to patient
+      try {
+        await this.notificationRepo.save(
+          this.notificationRepo.create({
+            patientId: appt.patientId,
+            title: 'Appointment Cancelled - Doctor Updated Availability',
+            message: `Your appointment on ${appt.date} at ${appt.startTime} has been cancelled because the doctor updated their availability. New availability: ${dto.startTime} - ${dto.endTime}. Please book another appointment.`,
+            type: NotificationType.APPOINTMENT_CANCELLED,
+            isRead: false,
+          }),
+        );
+      } catch (err) {
+        console.error(`Failed to notify patient for appointment ${appt.id}:`, err);
+      }
+    }
+
+    // Save the override
     const override = this.customRepo.create({ doctorId, ...dto });
-    return this.customRepo.save(override);
+    const saved = await this.customRepo.save(override);
+
+    return {
+      message: 'Custom availability override created successfully',
+      override: saved,
+      cancelledAppointments: cancelledCount,
+      note: cancelledCount > 0
+        ? `${cancelledCount} conflicting appointment(s) were automatically cancelled and patients have been notified.`
+        : 'No existing appointments were affected.',
+    };
   }
 
   async getAvailabilityForDate(doctorId: string, date: string) {
